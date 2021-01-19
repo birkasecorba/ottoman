@@ -1,69 +1,89 @@
-import Head from 'next/head';
-import styles from '../styles/Home.module.css';
+// React & NextJS
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/router';
+
+import Cookies from 'js-cookie';
+import { v4 as uuidv4 } from 'uuid';
+import useSocket from '../hooks/useSocket';
+// import styles from '../styles/Home.module.css';
+
+// Constants
+const SCREENS = {
+  HOME: 'home',
+  CONVERSATION: 'conversation',
+  POST_CONVERSATION: 'post_conversation',
+  // ? not sure about if this is a page
+  REPORT: 'report',
+  // LOBBY: 'lobby',
+  // FILL_QUESTIONS: 'fill_questions',
+  // VOTE_WORDS: 'vote_words',
+  // SEE_RESPONSES: 'see_responses',
+  // SCOREBOARD: 'scoreboard',
+};
+
+async function postData(url = '', data = {}) {
+  // Default options are marked with *
+  const response = await fetch(url, {
+    method: 'POST', // *GET, POST, PUT, DELETE, etc.
+    mode: 'cors', // no-cors, *cors, same-origin
+    cache: 'no-cache', // *default, no-cache, reload, force-cache, only-if-cached
+    credentials: 'same-origin', // include, *same-origin, omit
+    headers: {
+      'Content-Type': 'application/json',
+      // 'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    redirect: 'follow', // manual, *follow, error
+    referrerPolicy: 'no-referrer', // no-referrer, *no-referrer-when-downgrade, origin, origin-when-cross-origin, same-origin, strict-origin, strict-origin-when-cross-origin, unsafe-url
+    body: JSON.stringify(data), // body data type must match "Content-Type" header
+  });
+  return response.json(); // parses JSON response into native JavaScript objects
+}
 
 export default function Home() {
+  const socket = useSocket();
+
+  const [name, setName] = useState('');
+  const [userId, setUserId] = useState(Cookies.get('userId'));
+  const router = useRouter();
+
+  useEffect(() => {
+    if (!userId) {
+      const id = uuidv4();
+      Cookies.set('userId', id);
+      setUserId(id);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!socket) {
+      return;
+    }
+
+    socket.on('conversation.search', (conversation) => {
+      router.push(`/conversation/${conversation.id}`);
+    });
+  });
+
+  function startConversation(e) {
+    e.preventDefault();
+    socket.emit('conversation.search', { name });
+  }
+
   return (
-    <div className={styles.container}>
-      <Head>
-        <title>Create Next App</title>
-        <link rel="icon" href="/favicon.ico" />
-      </Head>
+    <div>
+      <h1>Discussions Over Coffee</h1>
+      <div>[Maybe a small explanaiton]</div>
+      <h2>
+        Grab your self a cup of [Rotating coffee names and images]
+        <br />
+        and when you are ready, start a conversation with someone random.
+        We&apos;ll provide the prompt
+      </h2>
 
-      <main className={styles.main}>
-        <h1 className={styles.title}>
-          Welcome to
-          {' '}
-          <a href="https://nextjs.org">Next.js!</a>
-        </h1>
-
-        <p className={`${styles.description} mb-5`}>
-          Get started by editing
-          {' '}
-          <code className={styles.code}>pages/index.js</code>
-        </p>
-
-        <div className={styles.grid}>
-          <a href="https://nextjs.org/docs" className={styles.card}>
-            <h3>Documentation &rarr;</h3>
-            <p>Find in-depth information about Next.js features and API.</p>
-          </a>
-
-          <a href="https://nextjs.org/learn" className={styles.card}>
-            <h3>Learn &rarr;</h3>
-            <p>Learn about Next.js in an interactive course with quizzes!</p>
-          </a>
-
-          <a
-            href="https://github.com/vercel/next.js/tree/master/examples"
-            className={styles.card}
-          >
-            <h3>Examples &rarr;</h3>
-            <p>Discover and deploy boilerplate example Next.js projects.</p>
-          </a>
-
-          <a
-            href="https://vercel.com/import?filter=next.js&utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-            className={styles.card}
-          >
-            <h3>Deploy &rarr;</h3>
-            <p>
-              Instantly deploy your Next.js site to a public URL with Vercel.
-            </p>
-          </a>
-        </div>
-      </main>
-
-      <footer className={styles.footer}>
-        <a
-          href="https://vercel.com?utm_source=create-next-app&utm_medium=default-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Powered by
-          {' '}
-          <img src="/vercel.svg" alt="Vercel Logo" className={styles.logo} />
-        </a>
-      </footer>
+      <form onSubmit={startConversation}>
+        <input value={name} onChange={(e) => setName(e.target.value)} />
+        <button type="submit">Start Conversation</button>
+      </form>
     </div>
   );
 }

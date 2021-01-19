@@ -23,6 +23,8 @@ module.exports = {
     'react/react-in-jsx-scope': 'off',
     'react/jsx-filename-extension': [1, { extensions: ['.jsx', '.tsx'] }],
     'react/jsx-props-no-spreading': 'off',
+    'no-unused-vars': 'off',
+    '@typescript-eslint/no-unused-vars': ['error'],
   },
   globals: {
     React: 'writable',
