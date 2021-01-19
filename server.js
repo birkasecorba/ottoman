@@ -98,8 +98,8 @@ io.on('connection', (socket) => {
 
     if (hasWaitingUser) {
       const match = sanitizedWaitlist[0];
-      waitlistDB = waitlistDB.filter((u) => u.id !== user.id || match.id);
-
+      waitlistDB = waitlistDB.filter((u) => u.id !== user.id && u.id !== match.id);
+      console.log(waitlistDB);
       const conversation = createConversation(user, match);
 
       // Get socket of the matched user and
