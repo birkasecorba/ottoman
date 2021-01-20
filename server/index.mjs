@@ -1,20 +1,51 @@
-const express = require('express');
-const http = require('http');
-const socketio = require('socket.io');
-const next = require('next');
-const cookie = require('cookie');
+// const express = require('express');
+import express from 'express';
+import http from 'http';
+import * as socketio from 'socket.io';
+import next from 'next';
+import cookie from 'cookie';
+import mongoose from 'mongoose';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+// Utils
+import { v4 as uuidv4 } from 'uuid';
+
+// Models
+import User from './models/User.mjs';
+import Conversation from './models/Conversation.mjs';
+
+dotenv.config();
+
+// eslint-disable-next-line no-underscore-dangle
+const __dirname = path.resolve(fileURLToPath(import.meta.url), '..');
 
 const port = parseInt(process.env.PORT, 10) || 3000;
 const dev = process.env.NODE_ENV !== 'production';
-const nextApp = next({ dev });
+const nextApp = next({
+  dev,
+  // https://nodejs.org/api/esm.html#esm_import_meta_url
+  dir: path.resolve(__dirname, '..'),
+});
 const nextHandler = nextApp.getRequestHandler();
 
 const app = express();
 const server = http.Server(app);
-const io = socketio(server);
+const io = new socketio.Server(server);
 
-// Utils
-const { v4: uuidv4 } = require('uuid');
+const url = `mongodb+srv://birkasecorba:${process.env.MONGO_PASS}@cluster0.to7hl.mongodb.net/${process.env.MONGO_DB}?retryWrites=true&w=majority`;
+mongoose.connect(url, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+const db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', () => {
+  // we're connected!
+  console.log('connected');
+});
 
 // Fake DB
 // type Conversation = {
@@ -65,7 +96,7 @@ function createConversation(...users) {
 
 // socket.io server
 io.on('connection', (socket) => {
-  socket.on('conversation.search', ({ name }) => {
+  socket.on('conversation.search', async ({ name }) => {
     const { userId } = cookie.parse(socket.request.headers.cookie || '');
 
     if (!userId) {
@@ -76,13 +107,18 @@ io.on('connection', (socket) => {
     socket.userId = userId;
 
     const user = {
-      id: userId,
+      _id: userId,
       name,
     };
 
     // Add user to DB if record doesn't exist
-    if (!usersDB[user.id]) {
-      usersDB[user.id] = user;
+    if (!usersDB[user._id]) {
+      usersDB[user._id] = user;
+    }
+
+    const userFromDB = await User.findById(userId).exec();
+    if (!userFromDB) {
+      await User.create(user);
     }
 
     // TODO: Make sure to filter for double entry
@@ -93,14 +129,20 @@ io.on('connection', (socket) => {
       socketId: socket.id,
     });
 
-    const sanitizedWaitlist = waitlistDB.filter((u) => u.id !== user.id);
+    const sanitizedWaitlist = waitlistDB.filter((u) => u._id !== user._id);
     const hasWaitingUser = sanitizedWaitlist.length > 0;
 
     if (hasWaitingUser) {
       const match = sanitizedWaitlist[0];
-      waitlistDB = waitlistDB.filter((u) => u.id !== user.id && u.id !== match.id);
-      console.log(waitlistDB);
+      waitlistDB = waitlistDB.filter((u) => u._id !== user._id && u._id !== match._id);
       const conversation = createConversation(user, match);
+
+      const matchFromDB = await User.findById(match._id).exec();
+      await Conversation.create({
+        users: [userFromDB, matchFromDB],
+        messages: [],
+        prompt: promptsDB[Math.floor(Math.random() * promptsDB.length)],
+      });
 
       // Get socket of the matched user and
       // send the conversation information to them
@@ -127,9 +169,13 @@ io.on('connection', (socket) => {
     io.to(conversationId).emit('conversation.info', conversation);
   });
 
-  socket.on('conversation.message', ({ conversationId, message }) => {
+  socket.on('conversation.message', async ({ conversationId, message }) => {
     const { userId } = socket;
     const conversation = conversationsDB[conversationId];
+
+    const con = await Conversation.getById(conversationId);
+    con.messages.push(con);
+    await con.save();
 
     conversation.messages.push({
       value: message,

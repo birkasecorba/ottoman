@@ -6,13 +6,16 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "serve": "NODE_ENV=production nodemon server.js"
+    "serve": "NODE_ENV=development node server/index.mjs",
+    "serve-prod": "NODE_ENV=production node server/index.mjs"
   },
   "dependencies": {
     "autoprefixer": "^10.2.1",
     "cookie": "^0.4.1",
+    "dotenv": "^8.2.0",
     "express": "^4.17.1",
     "js-cookie": "^2.2.1",
+    "mongoose": "^5.11.12",
     "next": "10.0.5",
     "postcss": "^8.2.4",
     "react": "17.0.1",
