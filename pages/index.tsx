@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 
 import Cookies from 'js-cookie';
-import { v4 as uuidv4 } from 'uuid';
+// import { v4 as uuidv4 } from 'uuid';
 import useSocket from '../hooks/useSocket';
 // import styles from '../styles/Home.module.css';
 
@@ -46,13 +46,14 @@ export default function Home() {
   const [userId, setUserId] = useState(Cookies.get('userId'));
   const router = useRouter();
 
-  useEffect(() => {
-    if (!userId) {
-      const id = uuidv4();
-      Cookies.set('userId', id);
-      setUserId(id);
-    }
-  }, []);
+  // useEffect(() => {
+  //   if (!userId) {
+  // const id = uuidv4();
+  // const id = Math.round(Math.random() * 100000000);
+  // Cookies.set('userId', id);
+  // setUserId(id);
+  //   }
+  // }, []);
 
   useEffect(() => {
     if (!socket) {
@@ -60,7 +61,17 @@ export default function Home() {
     }
 
     socket.on('conversation.search', (conversation) => {
-      router.push(`/conversation/${conversation.id}`);
+      console.log(conversation);
+      if (conversation._id) {
+        router.push(`/conversation/${conversation._id}`);
+      }
+    });
+
+    socket.on('setCookie', (cookies) => {
+      console.log('setCookie called');
+      Object.entries(cookies).forEach(([key, value]) => {
+        Cookies.set(key, value);
+      });
     });
   });
 

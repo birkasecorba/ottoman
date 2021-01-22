@@ -54,7 +54,7 @@ export default function ConversationPage() {
   return (
     <div>
       <div>
-        {`Conversation Id: ${conversation.id}`}
+        {`Conversation Id: ${conversation._id}`}
       </div>
 
       <div>
@@ -66,8 +66,8 @@ export default function ConversationPage() {
       </div>
 
       <ul>
-        {conversation.messages.map((m) => (
-          <li key={m.id}>
+        {conversation.messages.map((m) =>
+          <li key={m._id}>
             {m.value}
             <div>
               -
@@ -75,7 +75,7 @@ export default function ConversationPage() {
               {m.user.name}
             </div>
           </li>
-        ))}
+        )}
       </ul>
 
       <form onSubmit={sendMessage}>

@@ -5,16 +5,16 @@ import mongoose from 'mongoose';
 //   message: string,
 // }
 
-const UserSchema = new mongoose.Schema({
-  user: [{
+const MessageSchema = new mongoose.Schema({
+  user: {
     type: 'ObjectId',
     ref: 'User',
     required: true,
-  }],
+  },
   value: {
     type: String,
     required: true,
   },
 });
 
-export default mongoose.model('User', UserSchema);
+export default mongoose.model('Message', MessageSchema);

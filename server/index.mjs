@@ -3,28 +3,29 @@ import express from 'express';
 import http from 'http';
 import * as socketio from 'socket.io';
 import next from 'next';
-import cookie from 'cookie';
 import mongoose from 'mongoose';
-import path from 'path';
-import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
 
 // Utils
-import { v4 as uuidv4 } from 'uuid';
+import dotenv from 'dotenv';
+import cookie from 'cookie';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
 // Models
 import User from './models/User.mjs';
 import Conversation from './models/Conversation.mjs';
+import Message from './models/Message.mjs';
 
 dotenv.config();
 
-// eslint-disable-next-line no-underscore-dangle
+// __dirname is not available in modules so this is how you get it
 const __dirname = path.resolve(fileURLToPath(import.meta.url), '..');
 
 const port = parseInt(process.env.PORT, 10) || 3000;
 const dev = process.env.NODE_ENV !== 'production';
 const nextApp = next({
   dev,
+  // Resolves where the output of FE is
   // https://nodejs.org/api/esm.html#esm_import_meta_url
   dir: path.resolve(__dirname, '..'),
 });
@@ -45,33 +46,24 @@ db.on('error', console.error.bind(console, 'connection error:'));
 db.once('open', () => {
   // we're connected!
   console.log('connected');
+
+  User.deleteMany({}, (err) => {
+    console.log('collection removed');
+  });
+  Conversation.deleteMany({}, (err) => {
+    console.log('collection removed');
+  });
+  Message.deleteMany({}, (err) => {
+    console.log('collection removed');
+  });
 });
 
 // Fake DB
-// type Conversation = {
-//   id: string,
-//   users: [User],
-//   messages: [Message],
-//   prompt: Prompt
-// }
-
-// type User = {
-//   id: string,
-//   name: string,
-// }
-
-// type Message = {
-//   userId: <userId>,
-//   message: string,
-// }
-
 // type Waitlist = [User]
 
 // list of questions
 // type Prompt = ENUM[string];
 
-const conversationsDB = {};
-const usersDB = {};
 const promptsDB = [
   'What was the last funny video you saw?',
   'What do you do to get rid of stress?',
@@ -80,54 +72,44 @@ const promptsDB = [
 
 let waitlistDB = [];
 
-function createConversation(...users) {
-  const conversationId = uuidv4();
-
-  const conversation = {
-    id: conversationId,
-    users: [...users],
-    messages: [],
-    prompt: promptsDB[Math.floor(Math.random() * promptsDB.length)],
-  };
-
-  conversationsDB[conversationId] = conversation;
-  return conversation;
-}
-
 // socket.io server
 io.on('connection', (socket) => {
+  console.log('socket connected');
+  const { userId: cookieUserId } = cookie.parse(socket.request.headers.cookie || '');
+
+  if (cookieUserId) {
+    // eslint-disable-next-line no-param-reassign
+    socket.userId = cookieUserId;
+  }
+
   socket.on('conversation.search', async ({ name }) => {
-    const { userId } = cookie.parse(socket.request.headers.cookie || '');
+    const { userId } = socket;
+
+    const user = await User.findOneAndUpdate(
+      { _id: userId },
+      { name },
+      {
+        upsert: true,
+        new: true,
+      },
+    ).lean().exec();
 
     if (!userId) {
-      console.log('ERROR, NO USER ID');
+      socket.emit('setCookie', { userId: user.id });
     }
-
     // eslint-disable-next-line no-param-reassign
-    socket.userId = userId;
+    socket.userId = user._id;
 
-    const user = {
-      _id: userId,
-      name,
-    };
-
-    // Add user to DB if record doesn't exist
-    if (!usersDB[user._id]) {
-      usersDB[user._id] = user;
+    // Make sure to filter for double entry
+    if (!waitlistDB.find((u) => u._id === user._id)) {
+      waitlistDB.push({
+        _id: user._id,
+        name: user.name,
+        // saving this to send conversation
+        // info once match is found
+        socketId: socket.id,
+      });
     }
-
-    const userFromDB = await User.findById(userId).exec();
-    if (!userFromDB) {
-      await User.create(user);
-    }
-
-    // TODO: Make sure to filter for double entry
-    waitlistDB.push({
-      ...user,
-      // saving this to send conversation
-      // info once match is found
-      socketId: socket.id,
-    });
 
     const sanitizedWaitlist = waitlistDB.filter((u) => u._id !== user._id);
     const hasWaitingUser = sanitizedWaitlist.length > 0;
@@ -135,55 +117,94 @@ io.on('connection', (socket) => {
     if (hasWaitingUser) {
       const match = sanitizedWaitlist[0];
       waitlistDB = waitlistDB.filter((u) => u._id !== user._id && u._id !== match._id);
-      const conversation = createConversation(user, match);
+      // const conversation = createConversation(user, match);
 
-      const matchFromDB = await User.findById(match._id).exec();
-      await Conversation.create({
-        users: [userFromDB, matchFromDB],
+      // // Get socket of the matched user and
+      // // send the conversation information to them
+      // io.of('/').sockets.get(match.socketId).emit('conversation.search', conversation);
+      // // We don't need to do the same for the user
+      // // since the current connection sockeet is our user
+      // socket.emit('conversation.search', conversation);
+
+      // --------------------------------------
+
+      const matchFromDB = await User.findById(match._id).lean().exec();
+      const con = await Conversation.create({
+        users: [user, matchFromDB],
         messages: [],
         prompt: promptsDB[Math.floor(Math.random() * promptsDB.length)],
       });
 
       // Get socket of the matched user and
       // send the conversation information to them
-      io.of('/').sockets.get(match.socketId).emit('conversation.search', conversation);
+      io.of('/').sockets.get(match.socketId).emit('conversation.search', con);
       // We don't need to do the same for the user
       // since the current connection sockeet is our user
-      socket.emit('conversation.search', conversation);
+      socket.emit('conversation.search', con);
     }
   });
 
-  socket.on('conversation.join', ({ conversationId }) => {
+  socket.on('conversation.join', async ({ conversationId }) => {
     const { userId } = socket;
-    console.log('userId', userId);
 
-    if (!usersDB[userId]) {
-      console.error('NO USER trying to join conversation');
+    if (!userId) {
+      console.error({ error: 'No userId on socket' });
+      return;
+    }
+
+    const user = await User.findById(userId).exec();
+    if (!user) {
+      console.error({ error: 'NO USER trying to join conversation' });
       return;
     }
 
     socket.join(conversationId);
 
-    const conversation = conversationsDB[conversationId];
-    socket.emit('conversation.info', conversation);
-    io.to(conversationId).emit('conversation.info', conversation);
+    // const conversation = conversationsDB[conversationId];
+    // socket.emit('conversation.info', conversation);
+    // io.to(conversationId).emit('conversation.info', conversation);
+
+    const con = await Conversation.findById(conversationId)
+      .populate('users')
+      .populate({
+        path: 'messages',
+        populate: { path: 'user' },
+      })
+      .exec();
+    socket.emit('conversation.info', con);
+    io.to(conversationId).emit('conversation.info', con);
   });
 
   socket.on('conversation.message', async ({ conversationId, message }) => {
     const { userId } = socket;
-    const conversation = conversationsDB[conversationId];
 
-    const con = await Conversation.getById(conversationId);
-    con.messages.push(con);
-    await con.save();
+    // const conversation = conversationsDB[conversationId];
+    // conversation.messages.push({
+    //   value: message,
+    //   user: usersDB[userId],
+    //   id: uuidv4(),
+    // });
+    // io.to(conversationId).emit('conversation.info', conversation);
 
-    conversation.messages.push({
+    // --------
+    const user = await User.findById(userId).exec();
+
+    const newMessage = await Message.create({
+      user,
       value: message,
-      user: usersDB[userId],
-      id: uuidv4(),
     });
+    const con = await Conversation.findById(conversationId)
+      .populate('users')
+      .populate({
+        path: 'messages',
+        populate: { path: 'user' },
+      })
+      .exec();
 
-    io.to(conversationId).emit('conversation.info', conversation);
+    con.messages.push(newMessage);
+
+    await con.save();
+    io.to(conversationId).emit('conversation.info', con);
   });
 });
 
