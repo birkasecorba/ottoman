@@ -1,4 +1,10 @@
 {
+  "ts-node": {
+    "files": true
+  },
+  "files": [
+    "./server/types/index.d.ts",
+  ],
   "compilerOptions": {
     "lib": [
       "dom",
@@ -16,7 +22,11 @@
     "isolatedModules": true,
     "jsx": "preserve",
     "target": "es5",
-    "module": "esnext"
+    "module": "esnext",
+    "typeRoots": [
+      "./server/types",
+      "./node_modules/@types"
+    ]
   },
   "include": [
     "next-env.d.ts",

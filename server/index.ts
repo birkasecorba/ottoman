@@ -3,11 +3,8 @@ import express from 'express';
 import http from 'http';
 import * as socketio from 'socket.io';
 import next from 'next';
-import mongoose from 'mongoose';
-import redis from 'redis';
 
 // Utils
-import util from 'util';
 import dotenv from 'dotenv';
 import cookie from 'cookie';
 import path from 'path';
@@ -19,52 +16,22 @@ import Conversation from './models/Conversation';
 import Message from './models/Message';
 
 // Helpers
-import setup from './setup';
+import setupRedis from './setupRedis';
+import setupMongoose from './setupMongoose';
 
 dotenv.config();
 
-const redisClient = redis.createClient({
-  host: process.env.REDIS_HOSTNAME,
-  port: process.env.REDIS_PORT,
-  password: process.env.REDIS_PASS,
-});
-redisClient.get = util.promisify(redisClient.get);
-redisClient.hget = util.promisify(redisClient.hget);
-
-redisClient.on('error', (err) => {
-  console.log(`Redis connection error ${err}`);
+const redisClient = setupRedis();
+const mongooseClient = setupMongoose({
+  redisClient,
 });
 
-redisClient.on('ready', () => {
-  console.log('✅ 💃 redis have ready !');
-});
-
-redisClient.on('connect', () => {
-  console.log('✅ 💃 connect redis success !');
-});
-
-// MongoDB & Mongoose
-// ---------------------------------------------------------------
-const url = `mongodb+srv://birkasecorba:${process.env.MONGO_PASS}@cluster0.to7hl.mongodb.net/${process.env.MONGO_DB}?retryWrites=true&w=majority`;
-mongoose.connect(url, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
-
-const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'connection error:'));
-db.once('open', () => {
-  // we're connected!
-  console.log('connected');
-
+mongooseClient.connection.once('open', () => {
+  console.log('clearing DB');
   User.deleteMany({});
   Conversation.deleteMany({});
   Message.deleteMany({});
 });
-
-// ------------------------------
-
-setup(redisClient, mongoose);
 
 // __dirname is not available in modules so this is how you get it
 const __dirname = path.resolve(fileURLToPath(import.meta.url), '..');
@@ -175,10 +142,6 @@ io.on('connection', (socket) => {
 
     socket.join(conversationId);
 
-    // const conversation = conversationsDB[conversationId];
-    // socket.emit('conversation.info', conversation);
-    // io.to(conversationId).emit('conversation.info', conversation);
-
     const con = await Conversation.findById(conversationId)
       .populate('users')
       .populate({
@@ -193,15 +156,6 @@ io.on('connection', (socket) => {
   socket.on('conversation.message', async ({ conversationId, message }) => {
     const { userId } = socket;
 
-    // const conversation = conversationsDB[conversationId];
-    // conversation.messages.push({
-    //   value: message,
-    //   user: usersDB[userId],
-    //   id: uuidv4(),
-    // });
-    // io.to(conversationId).emit('conversation.info', conversation);
-
-    // --------
     const user = await User.findById(userId).exec();
 
     const newMessage = await Message.create({

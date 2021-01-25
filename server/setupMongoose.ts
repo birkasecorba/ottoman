@@ -1,18 +1,32 @@
 /* eslint-disable new-cap */
-/* eslint-disable no-param-reassign */
+import redis from 'redis';
+import mongoose from 'mongoose';
 
-export default function setup(redisClient, mongoose) {
-  // update defaults
+type Props = {
+  redisClient: redis.RedisClient
+}
+
+function setupMongoose({
+  redisClient,
+}: Props) {
+  const url = `mongodb+srv://birkasecorba:${process.env.MONGO_PASS}@cluster0.to7hl.mongodb.net/${process.env.MONGO_DB}?retryWrites=true&w=majority`;
+  mongoose.connect(url, {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+  });
+
+  const db = mongoose.connection;
+  db.on('error', console.error.bind(console, 'connection error:'));
+  db.once('open', () => {
+    // we're connected!
+    console.log('connected');
+  });
+
   mongoose.set('useFindAndModify', false);
 
   const { exec } = mongoose.Query.prototype;
 
   mongoose.Query.prototype.cache = function redisCache(ttl, customKey) {
-    if (typeof ttl === 'string') {
-      customKey = ttl;
-      ttl = 60;
-    }
-
     this._ttl = ttl;
     this._key = customKey;
     return this;
@@ -44,7 +58,7 @@ export default function setup(redisClient, mongoose) {
     const key = String(this._key || this._conditions);
     console.log('key:', key, typeof key);
 
-    const cached = await redisClient.get(String(key));
+    const cached = await redisClient.getAsync(String(key));
 
     if (cached) {
       console.log('[LOG] CACHE hit');
@@ -61,4 +75,8 @@ export default function setup(redisClient, mongoose) {
     }
     return result;
   };
+
+  return mongoose;
 }
+
+export default setupMongoose;
