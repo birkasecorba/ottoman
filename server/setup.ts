@@ -1,5 +1,6 @@
 /* eslint-disable new-cap */
 /* eslint-disable no-param-reassign */
+
 export default function setup(redisClient, mongoose) {
   // update defaults
   mongoose.set('useFindAndModify', false);

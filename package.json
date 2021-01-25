@@ -10,7 +10,6 @@
     "serve-prod": "NODE_ENV=production esm-ts-node server/index.ts",
     "verify": "tsc"
   },
-  "type": "module",
   "dependencies": {
     "autoprefixer": "^10.2.1",
     "cookie": "^0.4.1",
