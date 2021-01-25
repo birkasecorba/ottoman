@@ -41,9 +41,7 @@ async function postData(url = '', data = {}) {
 
 export default function Home() {
   const socket = useSocket();
-
   const [name, setName] = useState('');
-  const [userId, setUserId] = useState(Cookies.get('userId'));
   const router = useRouter();
 
   // useEffect(() => {
@@ -61,14 +59,13 @@ export default function Home() {
     }
 
     socket.on('conversation.search', (conversation) => {
-      console.log(conversation);
+      console.log('conversation.search', conversation);
       if (conversation._id) {
         router.push(`/conversation/${conversation._id}`);
       }
     });
 
     socket.on('setCookie', (cookies) => {
-      console.log('setCookie called');
       Object.entries(cookies).forEach(([key, value]) => {
         Cookies.set(key, value);
       });

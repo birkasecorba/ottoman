@@ -33,7 +33,7 @@ export default function ConversationPage() {
     }
 
     socket.on('conversation.info', (c) => {
-      console.log('aa');
+      console.log('conversation.info', c);
       setConversation(c);
     });
   }, [socket]);

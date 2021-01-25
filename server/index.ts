@@ -4,19 +4,67 @@ import http from 'http';
 import * as socketio from 'socket.io';
 import next from 'next';
 import mongoose from 'mongoose';
+import redis from 'redis';
 
 // Utils
+import util from 'util';
 import dotenv from 'dotenv';
 import cookie from 'cookie';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
 // Models
-import User from './models/User.mjs';
-import Conversation from './models/Conversation.mjs';
-import Message from './models/Message.mjs';
+import User from './models/User';
+import Conversation from './models/Conversation';
+import Message from './models/Message';
+
+// Helpers
+import setup from './setup';
 
 dotenv.config();
+
+const redisClient = redis.createClient({
+  host: process.env.REDIS_HOSTNAME,
+  port: process.env.REDIS_PORT,
+  password: process.env.REDIS_PASS,
+});
+redisClient.get = util.promisify(redisClient.get);
+redisClient.hget = util.promisify(redisClient.hget);
+
+redisClient.on('error', (err) => {
+  console.log(`Redis connection error ${err}`);
+});
+
+redisClient.on('ready', () => {
+  console.log('✅ 💃 redis have ready !');
+});
+
+redisClient.on('connect', () => {
+  console.log('✅ 💃 connect redis success !');
+});
+
+// MongoDB & Mongoose
+// ---------------------------------------------------------------
+const url = `mongodb+srv://birkasecorba:${process.env.MONGO_PASS}@cluster0.to7hl.mongodb.net/${process.env.MONGO_DB}?retryWrites=true&w=majority`;
+mongoose.connect(url, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+});
+
+const db = mongoose.connection;
+db.on('error', console.error.bind(console, 'connection error:'));
+db.once('open', () => {
+  // we're connected!
+  console.log('connected');
+
+  User.deleteMany({});
+  Conversation.deleteMany({});
+  Message.deleteMany({});
+});
+
+// ------------------------------
+
+setup(redisClient, mongoose);
 
 // __dirname is not available in modules so this is how you get it
 const __dirname = path.resolve(fileURLToPath(import.meta.url), '..');
@@ -32,31 +80,8 @@ const nextApp = next({
 const nextHandler = nextApp.getRequestHandler();
 
 const app = express();
-const server = http.Server(app);
+const server = new http.Server(app);
 const io = new socketio.Server(server);
-
-const url = `mongodb+srv://birkasecorba:${process.env.MONGO_PASS}@cluster0.to7hl.mongodb.net/${process.env.MONGO_DB}?retryWrites=true&w=majority`;
-mongoose.connect(url, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
-
-const db = mongoose.connection;
-db.on('error', console.error.bind(console, 'connection error:'));
-db.once('open', () => {
-  // we're connected!
-  console.log('connected');
-
-  User.deleteMany({}, (err) => {
-    console.log('collection removed');
-  });
-  Conversation.deleteMany({}, (err) => {
-    console.log('collection removed');
-  });
-  Message.deleteMany({}, (err) => {
-    console.log('collection removed');
-  });
-});
 
 // Fake DB
 // type Waitlist = [User]
@@ -92,7 +117,7 @@ io.on('connection', (socket) => {
         upsert: true,
         new: true,
       },
-    ).lean().exec();
+    ).cache(20, userId).exec();
 
     if (!userId) {
       socket.emit('setCookie', { userId: user.id });
@@ -117,18 +142,8 @@ io.on('connection', (socket) => {
     if (hasWaitingUser) {
       const match = sanitizedWaitlist[0];
       waitlistDB = waitlistDB.filter((u) => u._id !== user._id && u._id !== match._id);
-      // const conversation = createConversation(user, match);
 
-      // // Get socket of the matched user and
-      // // send the conversation information to them
-      // io.of('/').sockets.get(match.socketId).emit('conversation.search', conversation);
-      // // We don't need to do the same for the user
-      // // since the current connection sockeet is our user
-      // socket.emit('conversation.search', conversation);
-
-      // --------------------------------------
-
-      const matchFromDB = await User.findById(match._id).lean().exec();
+      const matchFromDB = await User.findById(match._id).exec();
       const con = await Conversation.create({
         users: [user, matchFromDB],
         messages: [],
@@ -152,7 +167,7 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const user = await User.findById(userId).exec();
+    const user = await User.findById(userId).cache(20, userId).exec();
     if (!user) {
       console.error({ error: 'NO USER trying to join conversation' });
       return;
@@ -214,8 +229,7 @@ nextApp.prepare().then(() => {
 
   app.get('*', (req, res) => nextHandler(req, res));
 
-  server.listen(port, (err) => {
-    if (err) throw err;
+  server.listen(port, () => {
     console.log(`> Ready on http://localhost:${port}`);
   });
 });

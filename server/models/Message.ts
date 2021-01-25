@@ -1,11 +1,13 @@
 import mongoose from 'mongoose';
 
-// type Message = {
-//   userId: <userId>,
-//   message: string,
-// }
+import { IUser } from './User';
 
-const MessageSchema = new mongoose.Schema({
+export interface IMessage extends mongoose.Document {
+  user: Array<IUser>,
+  value: string;
+}
+
+const MessageSchema = new mongoose.Schema<IMessage>({
   user: {
     type: 'ObjectId',
     ref: 'User',
