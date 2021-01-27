@@ -6,6 +6,7 @@
     "./server/types/index.d.ts",
   ],
   "compilerOptions": {
+    "baseUrl": ".",
     "lib": [
       "dom",
       "dom.iterable",

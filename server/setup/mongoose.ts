@@ -19,7 +19,7 @@ function setupMongoose({
   db.on('error', console.error.bind(console, 'connection error:'));
   db.once('open', () => {
     // we're connected!
-    console.log('connected');
+    console.log('Mongoose connected');
   });
 
   mongoose.set('useFindAndModify', false);
