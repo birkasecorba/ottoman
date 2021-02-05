@@ -5,6 +5,8 @@ import { useRouter } from 'next/router';
 import Cookies from 'js-cookie';
 // import { v4 as uuidv4 } from 'uuid';
 import useSocket from '../hooks/useSocket';
+import useInput from '../hooks/useInput';
+import Input from '../components/Input';
 // import styles from '../styles/Home.module.css';
 
 // Constants
@@ -41,17 +43,8 @@ async function postData(url = '', data = {}) {
 
 export default function Home() {
   const socket = useSocket();
-  const [name, setName] = useState('');
+  const { value: name, bind } = useInput('');
   const router = useRouter();
-
-  // useEffect(() => {
-  //   if (!userId) {
-  // const id = uuidv4();
-  // const id = Math.round(Math.random() * 100000000);
-  // Cookies.set('userId', id);
-  // setUserId(id);
-  //   }
-  // }, []);
 
   useEffect(() => {
     if (!socket) {
@@ -59,7 +52,6 @@ export default function Home() {
     }
 
     socket.on('conversation.search', (conversation) => {
-      console.log('conversation.search', conversation);
       if (conversation._id) {
         router.push(`/conversation/${conversation._id}`);
       }
@@ -89,7 +81,7 @@ export default function Home() {
       </h2>
 
       <form onSubmit={startConversation}>
-        <input value={name} onChange={(e) => setName(e.target.value)} />
+        <Input label="Username" {...bind} />
         <button type="submit">Start Conversation</button>
       </form>
     </div>

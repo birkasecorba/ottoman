@@ -23,6 +23,7 @@ module.exports = {
     'react/react-in-jsx-scope': 'off',
     'react/jsx-filename-extension': [1, { extensions: ['.jsx', '.tsx'] }],
     'react/jsx-props-no-spreading': 'off',
+    'react/require-default-props': 'off',
     'no-underscore-dangle': 'off',
     // TS fix
     'no-unused-vars': 'off',

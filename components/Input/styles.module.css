@@ -1,0 +1,18 @@
+.input {
+  transition: border 0.2s ease-in-out;
+  min-width: 280px
+}
+
+.input:focus + .label,
+.input:active + .label,
+.input.filled + .label {
+  color: #667eea;
+  transform-origin: left;
+  transform: scale(0.7) translate3d(0, -12px, 0);
+}
+
+.label {
+  transition: transform 0.1s ease-out, color 0.1s ease-out;
+  top: 14px;
+  left: 14px;
+}
