@@ -6,6 +6,8 @@ import Message from '../../../models/Message';
 export default async (io, socket, { conversationId, message }) => {
   const { userId } = socket;
 
+  // TODO: Don't bother sending the message if message is empty (trim?)
+
   const user = await User.findById(userId).exec();
 
   const newMessage = await Message.create({

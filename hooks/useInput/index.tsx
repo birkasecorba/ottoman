@@ -6,12 +6,12 @@ export default function useInput(initialValue) {
   return {
     value,
     setValue,
-    reset: () => setValue(""),
+    reset: () => setValue(''),
     bind: {
       value,
-      onChange: event => {
+      onChange: (event) => {
         setValue(event.target.value);
-      }
-    }
+      },
+    },
   };
 }

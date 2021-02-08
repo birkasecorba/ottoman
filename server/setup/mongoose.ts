@@ -27,6 +27,10 @@ function setupMongoose({
   const { exec } = mongoose.Query.prototype;
 
   mongoose.Query.prototype.cache = function redisCache(ttl, customKey) {
+    if (!customKey) {
+      return this;
+    }
+
     this._ttl = ttl;
     this._key = customKey;
     return this;

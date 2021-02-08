@@ -9,7 +9,7 @@ type InputProps = {
   value: string,
   onChange: (e: FormEvent<HTMLInputElement>) => any,
   className?: string,
-  inputProps: {
+  inputProps?: {
     [x: string]: any,
   }
   [x: string]: any,

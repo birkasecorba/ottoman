@@ -6,7 +6,6 @@ import next from 'next';
 // Utils
 import dotenv from 'dotenv';
 import path from 'path';
-import { fileURLToPath } from 'url';
 
 // Models
 import User from './models/User';
@@ -27,9 +26,9 @@ const mongooseClient = setupMongoose({
 
 mongooseClient.connection.once('open', () => {
   console.log('clearing DB');
-  User.deleteMany({});
-  Conversation.deleteMany({});
-  Message.deleteMany({});
+  User.collection.drop();
+  Conversation.collection.drop();
+  Message.collection.drop();
 });
 
 // __dirname is not available in modules so this is how you get it

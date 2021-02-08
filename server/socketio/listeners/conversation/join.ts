@@ -4,12 +4,13 @@ import { EVENTS } from '../../index';
 import User from '../../../models/User';
 import Conversation from '../../../models/Conversation';
 
+type ProjectSocket = socketio.Socket & { userId?: string }
+
 export default async (
   io: socketio.Server,
-  socket: socketio.Socket,
+  socket: ProjectSocket,
   { conversationId },
 ) => {
-  // @ts-ignore
   const { userId } = socket;
 
   if (!userId) {

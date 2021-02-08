@@ -6,26 +6,23 @@ let waitlistDB = [];
 
 export default async (io, socket, { name }) => {
   const { userId } = socket;
+  let user = await User.findOne({ id: userId }).exec();
 
-  const user = await User.findOneAndUpdate(
-    { _id: userId },
-    { name },
-    {
-      upsert: true,
-      new: true,
-    },
-  ).cache(20, userId).exec();
+  if (!user) {
+    user = await User.create({ name });
+  }
 
   if (!userId) {
+    console.log('new user, set cookie:', user, user.id);
     socket.emit('setCookie', { userId: user.id });
   }
   // eslint-disable-next-line no-param-reassign
-  socket.userId = user._id;
+  socket.userId = user.id;
 
   // Make sure to filter for double entry
-  if (!waitlistDB.find((u) => u._id === user._id)) {
+  if (!waitlistDB.find((u) => u.id === user.id)) {
     waitlistDB.push({
-      _id: user._id,
+      id: user.id,
       name: user.name,
       // saving this to send conversation
       // info once match is found
@@ -33,14 +30,14 @@ export default async (io, socket, { name }) => {
     });
   }
 
-  const sanitizedWaitlist = waitlistDB.filter((u) => u._id !== user._id);
+  const sanitizedWaitlist = waitlistDB.filter((u) => u.id !== user.id);
   const hasWaitingUser = sanitizedWaitlist.length > 0;
 
   if (hasWaitingUser) {
     const match = sanitizedWaitlist[0];
-    waitlistDB = waitlistDB.filter((u) => u._id !== user._id && u._id !== match._id);
+    waitlistDB = waitlistDB.filter((u) => u.id !== user.id && u.id !== match.id);
 
-    const matchFromDB = await User.findById(match._id).exec();
+    const matchFromDB = await User.findById(match.id).exec();
     const con = await Conversation.create({
       users: [user, matchFromDB],
       messages: [],
