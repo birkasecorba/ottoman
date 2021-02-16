@@ -2,6 +2,7 @@
   "name": "ottoman",
   "version": "0.1.0",
   "private": true,
+  "typings": "server/types/index.d.ts",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

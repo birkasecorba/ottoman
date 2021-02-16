@@ -1,4 +1,4 @@
-import { EVENTS, promptsDB } from '../../index';
+import { EVENTS } from '../../index';
 import User from '../../../models/User';
 import Conversation from '../../../models/Conversation';
 
@@ -6,7 +6,10 @@ let waitlistDB = [];
 
 export default async (io, socket, { name }) => {
   const { userId } = socket;
-  let user = await User.findOne({ id: userId }).exec();
+  let user = await User.get(userId);
+  console.log('name', name);
+  console.log('userId', userId);
+  console.log('user', user);
 
   if (!user) {
     user = await User.create({ name });
@@ -16,6 +19,7 @@ export default async (io, socket, { name }) => {
     console.log('new user, set cookie:', user, user.id);
     socket.emit('setCookie', { userId: user.id });
   }
+
   // eslint-disable-next-line no-param-reassign
   socket.userId = user.id;
 
@@ -37,18 +41,16 @@ export default async (io, socket, { name }) => {
     const match = sanitizedWaitlist[0];
     waitlistDB = waitlistDB.filter((u) => u.id !== user.id && u.id !== match.id);
 
-    const matchFromDB = await User.findById(match.id).exec();
-    const con = await Conversation.create({
+    const matchFromDB = await User.get(match.id);
+    const conversation = await Conversation.createNew({
       users: [user, matchFromDB],
-      messages: [],
-      prompt: promptsDB[Math.floor(Math.random() * promptsDB.length)],
     });
 
     // Get socket of the matched user and
     // send the conversation information to them
-    io.of('/').sockets.get(match.socketId).emit(EVENTS.conversation.search, con);
+    io.of('/').sockets.get(match.socketId).emit(EVENTS.conversation.search, conversation);
     // We don't need to do the same for the user
-    // since the current connection sockeet is our user
-    socket.emit(EVENTS.conversation.search, con);
+    // since the current connection socket is our user
+    socket.emit(EVENTS.conversation.search, conversation);
   }
 };
