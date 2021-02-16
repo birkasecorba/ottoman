@@ -4,6 +4,7 @@ import { EVENTS } from '../../index';
 import User from '../../../models/User';
 import Conversation from '../../../models/Conversation';
 
+// TODO: Move this to .d.ts
 type ProjectSocket = socketio.Socket & { userId?: string }
 
 export default async (
@@ -18,21 +19,19 @@ export default async (
     return;
   }
 
-  const user = await User.findById(userId).cache(20, userId).exec();
+  const user = await User.get(userId);
   if (!user) {
     console.error({ error: 'NO USER trying to join conversation' });
     return;
   }
 
+  // Use conversationId as a roomId and add
+  // current socket to this room
   socket.join(conversationId);
 
-  const con = await Conversation.findById(conversationId)
-    .populate('users')
-    .populate({
-      path: 'messages',
-      populate: { path: 'user' },
-    })
-    .exec();
-  socket.emit('conversation.info', con);
-  io.to(conversationId).emit(EVENTS.conversation.info, con);
+  const conversation = await Conversation.get(conversationId);
+
+  // TODO: is 'socket.emit' unnessary?
+  socket.emit(EVENTS.conversation.info, conversation);
+  io.to(conversationId).emit(EVENTS.conversation.info, conversation);
 };

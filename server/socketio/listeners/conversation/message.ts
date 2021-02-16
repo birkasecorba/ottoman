@@ -6,25 +6,20 @@ import Message from '../../../models/Message';
 export default async (io, socket, { conversationId, message }) => {
   const { userId } = socket;
 
-  // TODO: Don't bother sending the message if message is empty (trim?)
+  if (!message.trim()) {
+    console.error('Empty message is being sent');
+    return;
+  }
 
-  const user = await User.findById(userId).exec();
+  const user = await User.get(userId);
 
   const newMessage = await Message.create({
     user,
-    value: message,
+    value: message.trim(),
   });
 
-  const con = await Conversation.findById(conversationId)
-    .populate('users')
-    .populate({
-      path: 'messages',
-      populate: { path: 'user' },
-    })
-    .exec();
+  const conversation = await Conversation.get(conversationId);
+  await conversation.addMessage(newMessage);
 
-  con.messages.push(newMessage);
-
-  await con.save();
-  io.to(conversationId).emit(EVENTS.conversation.info, con);
+  io.to(conversationId).emit(EVENTS.conversation.info, conversation);
 };

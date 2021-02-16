@@ -1,5 +1,6 @@
 import 'mongoose';
 import 'redis';
+import * as socketio from 'socket.io';
 
 declare module 'redis' {
 
@@ -17,3 +18,5 @@ declare module 'mongoose' {
     cache(ttl: number, customKey?: string): Query;
   }
 }
+
+export type ProjectSocket = socketio.Socket & { userId?: string }
